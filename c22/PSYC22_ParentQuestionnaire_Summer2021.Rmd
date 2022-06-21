@@ -1,0 +1,381 @@
+---
+title: "PSYC22_ParentQuestionnaireTutorial"
+author: "Senthooran Yogeswaran"
+date: '2021-07-21'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+**Note** To run a line of code, press control-enter (windows) or command-enter(mac), or select "Run" in the upper right corner and "Run Selected Lines"
+**Note** putting # in front of a line of code turns it green and means it won't run
+
+#Load and tidy data
+
+#Goal 1: 
+Bring the data into RStudio Cloud and open it, and get R ready to go
+
+```{r}
+
+#To bring the dataset into RStudio cloud, click on Files in the bottom right box, then Upload, then clck "choose file" to find the PSYC22_Survey_Cleaned.csv file 
+
+rm(list=ls()) #this just starts you off with a clean slate
+install.packages("likert") #wait until the red writing stops loading before running the next line
+install.packages("tidyr")#wait until the red writing stops loading before running the next line
+install.packages("Hmisc")#wait until the red writing stops loading before running the next line
+install.packages("ggplot2") #we will need this later for making your graph, but run it now.  You only need to run this line once on your machine. 
+library(ggplot2) #we will need this later for making your graph, but run it now
+library(tidyr)
+library(likert)
+library(Hmisc)
+
+
+ParentQ <- read.csv("PSYC22_SurveyClean_Summer2021.csv") #this loads the datafile into our "Global Environment". It will show up now under "Data" in the window to your upper right. When you load it in, it should show you how many observations (participants) are in the file and how many questions we had on our survey (335)
+
+
+```
+
+
+#Goal 2: 
+Select the variables that you are going to need to ask your research question
+
+
+Now you are going to make a new object that only includes the responses to questions you care about
+outside of R, open up the QuestionLegend.csv document that you downloaded from Quercus. Identify the Question Code for each question that you care about.
+
+
+```{r}
+
+#myvars <- c("ResponseId", "Q2", "Q3") #add the question codes that you want to include after "Q3", separating each with a comma and putting " " around it. Make sure you are copying the Question Code EXACTLY as it is shown in the QuestionLegend. There are no spaces in these codes, and capitalization matters. This just includes anonymous particpipant ID, child age in days and child gender so far.
+
+myvars <- c("ResponseId", "Q2", "Q3","Q39_1","Q47_10","Q132_1","Q133_2","Q133_5","Q133_6","Q134_1") #For the purpose of the class demo, I'm selecting some questions about music and cultural background. 
+
+
+#my questions
+#•	Q39_1: On average, how much time (minutes/day) does your child spend engaging in some form of physical activity (e.g., tummy time, reaching for or playing with toys/objects, crawling, walking, rolling, etc.)? - Minutes/ day
+#	Q47_10: How often does your child: - Get irritable/upset easily
+#	Q132_1: I feel that the pandemic is resulting in: - My child not spending enough time being active.
+#	Q133_2: During the COVID-19 pandemic, has your child experienced an increase, decrease or the same amount of: - In-person social interactions with family members outside of their household
+#	Q133_5: During the COVID-19 pandemic, has your child experienced an increase, decrease or the same amount of: - In-person social interactions with their caregiver(s)
+#	Q133_6: During the COVID-19 pandemic, has your child experienced an increase, decrease or the same amount of: - Anxiety (increased irritability, tantrums, clinginess)
+#	Q134_1: During the COVID-19 pandemic, have you experienced an increase, decrease or the same amount of: - Stress
+
+
+
+MyParentQ <- na.omit(ParentQ[myvars]) #This will create a new object with only your variables of interest, and excluding any parent who left an answer to one of your questions blank (that's the na.omit bit)
+
+#You might want to change the variable names to something that makes a bit more sense. Don't put any spaces in the short names you use to represent each of your variables of interest
+
+#YOU NEED TO PUT YOUR OWN VARIABLE NAMES IN THIS NEXT LINE
+colnames(MyParentQ) <- c("ResponseID","AgeDays","Gender","MinutesExercise","ChildIrritable","ChildPandemicActivity","ChildInteractionOutside","ChildInteractionInside","ChildAnxiety","ParentStress") 
+#replace these names with something that reflects your variables, in the exact order that they appear. You must list a name for each column, even if you aren't changing it. For example, MyParentQ has 6 variables, so I need 6 names here.
+
+#now let's look at a quick summary of our data
+
+summary(MyParentQ)
+
+#Gender and PopulationGroup are not continuous or ordinal, they are categorical or binary. They need to be changed to "factors" since R is reading them like numbers with values right now. We want R to know that the numbers are codes that can't be thought of as numbers with a particular order
+
+MyParentQ$Gender<-as.factor(MyParentQ$Gender) #IF you have a categorical or binary variable, replace "Gender" in the beginning and end of this line of code with your variable name. 
+MyParentQ$ChildIrritable<-as.factor(MyParentQ$ChildIrritable) 
+
+MyParentQ$ChildPandemicActivity<-as.factor(MyParentQ$ChildPandemicActivity)
+
+MyParentQ$ChildInteractionOutside<-as.factor(MyParentQ$ChildInteractionOutside)
+
+MyParentQ$ChildInteractionInside<-as.factor(MyParentQ$ChildInteractionInside)
+
+MyParentQ$ChildAnxiety<-as.factor(MyParentQ$ChildAnxiety)
+
+MyParentQ$ParentStress<-as.factor(MyParentQ$ParentStress)
+
+
+#let's look at that summary again
+summary(MyParentQ) #That makes more sense! Now the continuous and ordinal variables have some descriptive details, but the binary/categorical variables just tell us info about how many people fall into each of the categories (i.e. here I have 38 white parents and 102 who identified themselves as not white). Summary is also handy for quickly seeing overall means and medians, and response ranges.
+
+
+```
+
+#Goal 3: 
+Create a subset with the participants that you are including
+
+This step only applies if you are interested in a subset of the data. For example, are you only interested in looking at data from only children below 3 years of age? If so, we can use this chunk of script to pull out those individuals. If you plan to use data from all of the families who answered your questions, you can skip this section.
+
+```{r}
+
+#Let's pretend that I want to ignore data from children over 3-years-old. The first important point is that Child Age is in Days in this dataset. So how many days old is a 3-year-old?
+
+##AgeCutoff <- 3*365 #R lets you do simple math functions. Here, the star means "multiple". Sending this simple math calculation into a variable called AgeCutoff lets us use that variable in some code later. Once you run this, you can see the answer listed in "Values" to your top right.
+
+#What if I only wanted to look at female children under 3?
+MyParentQ_Backup <- MyParentQ #this is to make a copy of MyParentQ in case we mess up while subsetting
+
+##MyParentQ <-subset(MyParentQ, Gender == 2 & AgeDays < AgeCutoff) ##This says "hey make a subset of only the female chidlren, and only the children with Age in Days less than my age cutoff specified previously. My participants went from 138 to 50. Note that for Gender == 2 there are two equal signs here. That's actually an important picky R detail. If you only put one, things might not happen the way you expect. 
+
+
+```
+
+#Goal 4: Analyze your results and plot visualizations
+
+We will go over a few options. You will have to decide which test is most appropriate for your research question.
+- Correlation
+- One-sample t-test
+- Independent sample t-test
+- Paired sample t-test
+
+We will go through these one by one
+
+
+
+**Correlation example**
+Run stats on a correlational analysis
+
+Do you want to know how one of your continuous/ordinal variables changes with another? Correlation time!
+
+In this example, I want to know of if parents who report singing more frequently overall also report using song as a strategy to soothe their distressed child more often.
+
+```{r}
+
+MyParentQ$corrX <-as.numeric(as.character(MyParentQ$ChildInteractionOutside))  #CHANGE "SingToSooth" with your first variable of interest
+MyParentQ$corrY <-as.numeric(as.character(MyParentQ$ChildAnxiety))    #replace "MinutesSinging"" with your second variable of interest
+
+(correlation1 <- cor.test(MyParentQ$corrX, MyParentQ$corrY)) #This performs a Pearson Correlation on your two variables
+
+```
+
+**Correlation Interpretation** 
+So what's going on here? You want to look at the value at the bottom (cor) to know whether your correlation is positive or negative and how strong it is. You also need to look at "p-value" in the top right of this report to see if your correlation is significant. If it is less than 0.05 then it is significant. You also need "df" which means degrees of freedom, and represents the number of participants in this correlation minus the number of things you correlated (2 in this case).
+
+In this example, we see that parents who tend to sing more during the day also report being more likely to use song to soothe their child when they are upset. In my results section, I might say something like:
+
+"Parental singing per day was positively correlated with how likely parents were to report using song to soothe their child when they were distressed, Pearson's r(136) = 0.26, p = .002" (r and p should be italic here. Note, the number in brackets after r is the degrees of freedom, df)
+
+If it wasn't significant, we could say something like:
+
+"The relationship between reporated parental singing per day and the use of song to soothe children when they were upset did not reach significance, Pearson's r(138) = -0.11, p = 0.20". (these are made up r and p numbers)
+
+
+** Plot your Correlation**
+Let's plot that correlation
+```{r}
+
+(p <- ggplot(MyParentQ, aes(x=corrX, y=corrY)) + #this is where you are telling it which variable to put on your x and y axis
+  geom_point(alpha = 0.3) + #plot each data point, and to make them semi-transparent so that darker spots mean more people who responded that way.
+  scale_y_continuous(expand=c(0,0))+
+  coord_cartesian(clip = 'off') +
+  geom_smooth(method=lm, se=TRUE, fullrange=TRUE, colour = "red")) #this asks it to plot the linear line of best fit with the confidence interval in grey. This is making the line red, but you can change the colour if you want
+
+#Let's add some axis titles now, and make it prettier
+XTitle <- "Child's Social Interaction Outside Household" #CHANGE to a description of your first variable that you'll put on your graph later 
+YTitle <- "Child's Increase in Anxiety" #CHANGE to a description of your second variable that you'll put on your graph later 
+
+(p2 <- p +
+  xlab(XTitle)+ #this is plugging in the title you chose above
+  ylab(YTitle)+ #this is plugging in the title you chose above
+  theme_classic()) #this makes it look a bit prettier
+
+```
+
+
+```{r}
+#Time to save your beautiful figure
+
+ggsave("correlationScatterPlot.pdf") #This saves a pdf of the plot you just made. If you end up making more than one correlation plot, change the save name in " " here so that you don't keep overwriting your figure. This is being saved to your desktop folder (your working directory)
+#IF YOU ARE USING RSTUDIO CLOUD you will have to navigate to files in the bottom right box, click the file name to open it in a browswer window, and download it.
+
+```
+
+
+```{r}
+
+MyParentQ$corrX <-as.numeric(as.character(MyParentQ$ChildPandemicActivity))
+
+MyParentQ$corrY <-as.numeric(as.character(MyParentQ$ChildIrritable))   
+
+(correlation1 <- cor.test(MyParentQ$corrX, MyParentQ$corrY))
+```
+
+
+```{r}
+
+(p <- ggplot(MyParentQ, aes(x=corrX, y=corrY)) + #this is where you are telling it which variable to put on your x and y axis
+  geom_point(alpha = 0.3) + #plot each data point, and to make them semi-transparent so that darker spots mean more people who responded that way.
+  scale_y_continuous(expand=c(0,0))+
+  coord_cartesian(clip = 'off') +
+  geom_smooth(method=lm, se=TRUE, fullrange=TRUE, colour = "red")) #this asks it to plot the linear line of best fit with the confidence interval in grey. This is making the line red, but you can change the colour if you want
+
+#Let's add some axis titles now, and make it prettier
+XTitle <- "Child's Activity During The Pandemic" #CHANGE to a description of your first variable that you'll put on your graph later 
+YTitle <- "Child's Irritability" #CHANGE to a description of your second variable that you'll put on your graph later 
+
+(p2 <- p +
+  xlab(XTitle)+ #this is plugging in the title you chose above
+  ylab(YTitle)+ #this is plugging in the title you chose above
+  theme_classic()) #this makes it look a bit prettier
+```
+
+```{r}
+
+
+ggsave("correlationScatterPlot.pdf") 
+
+```
+
+```{r}
+
+MyParentQ$corrX <-as.numeric(as.character(MyParentQ$ChildAnxiety))
+
+MyParentQ$corrY <-as.numeric(as.character(MyParentQ$ParentStress))   
+
+(correlation1 <- cor.test(MyParentQ$corrX, MyParentQ$corrY))
+```
+
+
+```{r}
+
+(p <- ggplot(MyParentQ, aes(x=corrX, y=corrY)) + #this is where you are telling it which variable to put on your x and y axis
+  geom_point(alpha = 0.3) + #plot each data point, and to make them semi-transparent so that darker spots mean more people who responded that way.
+  scale_y_continuous(expand=c(0,0))+
+  coord_cartesian(clip = 'off') +
+  geom_smooth(method=lm, se=TRUE, fullrange=TRUE, colour = "red")) #this asks it to plot the linear line of best fit with the confidence interval in grey. This is making the line red, but you can change the colour if you want
+
+#Let's add some axis titles now, and make it prettier
+XTitle <- "Child's Anxiety" #CHANGE to a description of your first variable that you'll put on your graph later 
+YTitle <- "Parent's Stress" #CHANGE to a description of your second variable that you'll put on your graph later 
+
+(p2 <- p +
+  xlab(XTitle)+ #this is plugging in the title you chose above
+  ylab(YTitle)+ #this is plugging in the title you chose above
+  theme_classic()) #this makes it look a bit prettier
+```
+
+```{r}
+
+
+ggsave("correlationScatterPlot3.pdf") 
+
+```
+
+```{r}
+
+MyParentQ$corrX <-as.numeric(as.character(MyParentQ$ChildInteractionInside))
+
+MyParentQ$corrY <-as.numeric(as.character(MyParentQ$ChildAnxiety))   
+
+(correlation1 <- cor.test(MyParentQ$corrX, MyParentQ$corrY))
+```
+
+
+```{r}
+
+(p <- ggplot(MyParentQ, aes(x=corrX, y=corrY)) + #this is where you are telling it which variable to put on your x and y axis
+  geom_point(alpha = 0.3) + #plot each data point, and to make them semi-transparent so that darker spots mean more people who responded that way.
+  scale_y_continuous(expand=c(0,0))+
+  coord_cartesian(clip = 'off') +
+  geom_smooth(method=lm, se=TRUE, fullrange=TRUE, colour = "red")) #this asks it to plot the linear line of best fit with the confidence interval in grey. This is making the line red, but you can change the colour if you want
+
+#Let's add some axis titles now, and make it prettier
+XTitle <- "Child's Social Interaction Inside" #CHANGE to a description of your first variable that you'll put on your graph later 
+YTitle <- "Child's Anxiety" #CHANGE to a description of your second variable that you'll put on your graph later 
+
+(p2 <- p +
+  xlab(XTitle)+ #this is plugging in the title you chose above
+  ylab(YTitle)+ #this is plugging in the title you chose above
+  theme_classic()) #this makes it look a bit prettier
+```
+
+```{r}
+
+
+ggsave("correlationScatterPlot4.pdf") 
+
+```
+
+```{r}
+
+MyParentQ$corrX <-as.numeric(as.character(MyParentQ$ChildInteractionInside))
+
+MyParentQ$corrY <-as.numeric(as.character(MyParentQ$ChildIrritable))   
+
+(correlation1 <- cor.test(MyParentQ$corrX, MyParentQ$corrY))
+```
+
+
+```{r}
+
+(p <- ggplot(MyParentQ, aes(x=corrX, y=corrY)) + #this is where you are telling it which variable to put on your x and y axis
+  geom_point(alpha = 0.3) + #plot each data point, and to make them semi-transparent so that darker spots mean more people who responded that way.
+  scale_y_continuous(expand=c(0,0))+
+  coord_cartesian(clip = 'off') +
+  geom_smooth(method=lm, se=TRUE, fullrange=TRUE, colour = "red")) #this asks it to plot the linear line of best fit with the confidence interval in grey. This is making the line red, but you can change the colour if you want
+
+#Let's add some axis titles now, and make it prettier
+XTitle <- "Child's Social Interaction Inside" #CHANGE to a description of your first variable that you'll put on your graph later 
+YTitle <- "Child's Irritability" #CHANGE to a description of your second variable that you'll put on your graph later 
+
+(p2 <- p +
+  xlab(XTitle)+ #this is plugging in the title you chose above
+  ylab(YTitle)+ #this is plugging in the title you chose above
+  theme_classic()) #this makes it look a bit prettier
+```
+
+```{r}
+
+
+ggsave("correlationScatterPlot5.pdf") 
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+A better way to plot Likert responses if you are interested in showing the distribution of responses
+
+
+```{r}
+
+#install.packages("likert")
+library(likert)
+
+choices  = c("Never", "Sometimes", "Half the Time", "Most of the Time", "Always") #Change to reflect your likert scale. Make sure they are in the same order as presented in the Question Legend! Don't include "prefer not to say" since those responses are all removed anyway
+
+cols <- c(which( colnames(MyParentQ)=="ChildPandemicActivity" ),which( colnames(MyParentQ)=="ChildAnxiety"),which( colnames(MyParentQ)=="ChildInteractionOutside" ),which( colnames(MyParentQ)=="ChildInteractionInside" ))   #put your column names in here. If you want more than 2 questions plotted, add more repetitions of the "which" statement.
+
+items <- as.data.frame(MyParentQ[,cols])
+
+colnames(items) <- c("Reported Child Pandemic Activity", "Reported Level of Child Anxiety", "Reported Child Interaction Outside House","Reported Child Interaction Inside House")  # change to be a description of your scales (IN ORDER!) that will show up on your graph
+
+for(i in 1:ncol(items)) {
+  items[,i] = factor(items[,i], levels=1:5, labels=choices, ordered=TRUE)
+} #this just recodes the number system 
+
+plot<- plot(likert(items),wrap = 20, centered = TRUE, center = 1.5) #This will center your plot between "Never" and "Sometimes" for this example. If you want to center it around the middle response (for example, if the middle response represents "neutral"), you can delete the bit that says center = 1.5
+
+plot
+
+
+```
+
+```{r}
+#Time to save your beautiful figure
+
+ggsave("LikertVis.pdf") #This saves a pdf of the plot you just made. If you end up making more than one correlation plot, change the save name in " " here so that you don't keep overwriting your figure. This is being saved to your desktop folder (your working directory)
+
+
+```
